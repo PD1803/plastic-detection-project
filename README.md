@@ -4,7 +4,7 @@
 
 ## 📌 About
 
-This project detects plastic type using camera input.
+This project identifies the type of plastic using camera input.
 
 ## 🎯 Features
 
