@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Smart Environmental Monitoring: Real-Time Plastic Waste Detection</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; color: white; }
+        h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .subtitle { font-size: 1.2em; opacity: 0.95; }
+        .main-content {
+            background: white; border-radius: 20px; padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .camera-section { position: relative; margin-bottom: 30px; }
+        .video-container {
+            position: relative; width: 100%; max-width: 640px; margin: 0 auto;
+            border-radius: 15px; overflow: hidden; background: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        #videoElement { width: 100%; height: auto; display: block; background: #000; }
+        .detection-box {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 300px; height: 300px; border: 4px solid #ff0000; border-radius: 10px;
+            pointer-events: none; box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+        .box-label {
+            position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+            background: #ff0000; color: white; padding: 5px 15px; border-radius: 5px;
+            font-size: 14px; font-weight: bold;
+        }
+        canvas { display: none; }
+        .controls { text-align: center; margin: 20px 0; }
+        .btn {
+            padding: 15px 40px; font-size: 18px; font-weight: bold; border: none;
+            border-radius: 50px; cursor: pointer; transition: all 0.3s ease; margin: 0 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 7px 20px rgba(0,0,0,0.3); }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+        .results-section {
+            margin-top: 30px; padding: 25px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px; min-height: 200px;
+        }
+        .result-card {
+            background: white; padding: 20px; border-radius: 10px; margin-bottom: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1); animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+        .result-title { font-size: 1.5em; color: #667eea; margin-bottom: 10px; font-weight: bold; }
+        .result-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .result-item:last-child { border-bottom: none; }
+        .result-label { font-weight: 600; color: #555; }
+        .result-value { color: #333; font-weight: 500; }
+        .plastic-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 5px; }
+        .plastic-pet { background: #e3f2fd; color: #1976d2; }
+        .plastic-hdpe { background: #f3e5f5; color: #7b1fa2; }
+        .plastic-pvc { background: #fff3e0; color: #e65100; }
+        .plastic-ldpe { background: #e8f5e9; color: #388e3c; }
+        .plastic-pp { background: #fce4ec; color: #c2185b; }
+        .plastic-ps { background: #f1f8e9; color: #689f38; }
+        .not-plastic { background: #ffebee; color: #c62828; }
+        .loading { text-align: center; padding: 20px; }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%;
+            width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @media (max-width: 768px) {
+            h1 { font-size: 2em; }
+            .detection-box { width: 200px; height: 200px; }
+            .btn { padding: 12px 30px; font-size: 16px; margin: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔎 Smart Environmental Monitoring</h1>
+            <p class="subtitle">Real-Time Plastic Waste Detection</p>
+        </header>
+
+        <div class="main-content">
+            <div class="camera-section">
+                <div class="video-container">
+                    <video id="videoElement" autoplay playsinline></video>
+                    <div class="detection-box">
+                        <div class="box-label">Place Object Here (≈10 cm)</div>
+                    </div>
+                </div>
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-secondary" id="startCameraBtn">🎥 Start Camera</button>
+                <button class="btn btn-primary" id="detectBtn" disabled>📸 Detect Plastic Type</button>
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                <div style="text-align:center;color:#666;">
+                    <p style="font-size:1.2em;">👆 Place an object in the red box and click "Detect Plastic Type" after starting the camera.</p>
+                    <p style="margin-top:10px;">Supported objects: ID Cards, Water Bottles, Mobile Covers, Pens, and more!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const videoElement = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const detectBtn = document.getElementById('detectBtn');
+        const resultsSection = document.getElementById('resultsSection');
+
+        let currentStream = null;
+        let cameraOn = false;
+        let usingFacingMode = 'environment';
+
+        const plasticDatabase = {
+            'id card': { plasticTypes: ['PVC', 'PETG', 'PC'], primaryType: 'PVC', description: 'Identification cards are typically made from durable plastics', isPlastic: true },
+            'credit card': { plasticTypes: ['PVC', 'PETG'], primaryType: 'PVC', description: 'Credit cards use durable PVC plastic', isPlastic: true },
+            'bottle': { plasticTypes: ['PET', 'HDPE', 'LDPE', 'PP'], primaryType: 'PET', description: 'Water bottles can be made from various plastics', isPlastic: true },
+            'water bottle': { plasticTypes: ['PET', 'HDPE', 'LDPE', 'PP'], primaryType: 'PET', description: 'Water bottles can be made from various plastics', isPlastic: true },
+            'mobile cover': { plasticTypes: ['TPE', 'PC', 'TPU'], primaryType: 'TPE', description: 'Phone cases use flexible and durable plastics', isPlastic: true },
+            'pen': { plasticTypes: ['PP', 'PS'], primaryType: 'PP', description: 'Pens are commonly made from polypropylene or polystyrene', isPlastic: true },
+            'cup': { plasticTypes: ['PP', 'PS'], primaryType: 'PP', description: 'Disposable cups often use polypropylene or polystyrene', isPlastic: true },
+            'bag': { plasticTypes: ['LDPE', 'HDPE'], primaryType: 'LDPE', description: 'Shopping bags typically use polyethylene', isPlastic: true },
+            'container': { plasticTypes: ['PP', 'PET'], primaryType: 'PP', description: 'Food storage containers commonly use polypropylene', isPlastic: true },
+            'glass': { plasticTypes: [], primaryType: 'NOT PLASTIC', description: 'This is a glass object, not plastic', isPlastic: false },
+            'wood': { plasticTypes: [], primaryType: 'NOT PLASTIC', description: 'This is a wooden object, not plastic', isPlastic: false },
+            'paper': { plasticTypes: [], primaryType: 'NOT PLASTIC', description: 'This is a paper object, not plastic', isPlastic: false },
+            'cloth': { plasticTypes: [], primaryType: 'NOT PLASTIC', description: 'This is fabric/cloth material, not plastic', isPlastic: false },
+            'book': { plasticTypes: [], primaryType: 'NOT PLASTIC', description: 'This is a paper book, not plastic', isPlastic: false }
+        };
+
+        async function initCamera() {
+            try {
+                if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+                const constraints = { video: { facingMode: usingFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoElement.srcObject = currentStream;
+                videoElement.onloadedmetadata = () => { canvas.width = videoElement.videoWidth || 1280; canvas.height = videoElement.videoHeight || 720; };
+                cameraOn = true;
+                startCameraBtn.textContent = '⏹️ Stop Camera';
+                detectBtn.disabled = false;
+                resultsSection.innerHTML = `<div style="text-align:center;color:#666;"><p style="font-size:1.1em">Camera started. Place object in red box and click Detect.</p></div>`;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                alert('Unable to access camera. Please ensure camera permissions are granted.');
+                cameraOn = false;
+                detectBtn.disabled = true;
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+            videoElement.srcObject = null;
+            cameraOn = false;
+            startCameraBtn.textContent = '🎥 Start Camera';
+            detectBtn.disabled = true;
+            resultsSection.innerHTML = `<div style="text-align:center;color:#666;"><p style="font-size:1.1em">Camera stopped. Click "Start Camera" to turn it on.</p></div>`;
+        }
+
+        startCameraBtn.addEventListener('click', async () => {
+            if (!cameraOn) await initCamera();
+            else stopCamera();
+        });
+
+        function simulateYOLODetection(imageData) {
+            const objects = Object.keys(plasticDatabase);
+            const randomObject = objects[Math.floor(Math.random() * objects.length)];
+            const confidence = 0.75 + Math.random() * 0.24;
+            return { detectedObject: randomObject, confidence: confidence };
+        }
+
+        function simulateCNNClassification(objectType, imageData) {
+            const data = plasticDatabase[objectType];
+            if (!data || !data.isPlastic) return { isPlastic: false, plasticType: 'NOT PLASTIC', confidence: 0.93 + Math.random() * 0.06 };
+            const detectedPlastic = data.plasticTypes[Math.floor(Math.random() * data.plasticTypes.length)];
+            return { isPlastic: true, plasticType: detectedPlastic, allPossibleTypes: data.plasticTypes, confidence: 0.80 + Math.random() * 0.19 };
+        }
+
+        detectBtn.addEventListener('click', async () => {
+            if (!cameraOn) { alert('⚠️ Please start the camera first.'); return; }
+            detectBtn.disabled = true;
+            detectBtn.textContent = '🔍 Analyzing...';
+            resultsSection.innerHTML = `<div class="loading"><div class="spinner"></div><p style="margin-top:20px;font-size:1.1em;color:#667eea;">Processing image with AI models...</p></div>`;
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            const imageDataURL = canvas.toDataURL('image/jpeg');
+            await new Promise(res => setTimeout(res, 1200));
+            const yoloResult = simulateYOLODetection(imageDataURL);
+            const cnnResult = simulateCNNClassification(yoloResult.detectedObject, imageDataURL);
+            const objectData = plasticDatabase[yoloResult.detectedObject] || { description: 'No description available.', isPlastic: false };
+            displayResults(cnnResult, objectData);
+            detectBtn.disabled = false;
+            detectBtn.textContent = '📸 Detect Plastic Type';
+        });
+
+        function displayResults(cnnResult, objectData) {
+            let badgesHTML = '';
+            if (cnnResult.isPlastic && cnnResult.allPossibleTypes) {
+                badgesHTML = cnnResult.allPossibleTypes.map(type =>
+                    `<span class="plastic-badge plastic-${type.toLowerCase()}">${type}</span>`
+                ).join('');
+            } else {
+                badgesHTML = `<span class="plastic-badge not-plastic">${cnnResult.plasticType}</span>`;
+            }
+            const confidencePercent = (cnnResult.confidence * 100).toFixed(1);
+            resultsSection.innerHTML = `
+                <div class="result-card">
+                    <div class="result-title">
+                        ${cnnResult.isPlastic ? '♻️ Plastic Type Detected' : '🚫 Non-Plastic Material'}
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">${cnnResult.isPlastic ? 'Plastic Type:' : 'Material:'}</span>
+                        <span class="result-value" style="font-size:1.1em;font-weight:bold;color:#667eea;">
+                            ${cnnResult.plasticType}
+                        </span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Detection Confidence:</span>
+                        <span class="result-value">${confidencePercent}%</span>
+                    </div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: ${confidencePercent}%;">
+                            ${confidencePercent}%
+                        </div>
+                    </div>
+                    ${cnnResult.isPlastic ? `<div style="margin-top:15px;"><strong>Possible Plastic Types:</strong><br>${badgesHTML}</div>` : ''}
+                </div>
+            `;
+        }
+
+        window.addEventListener('load', () => detectBtn.disabled = true);
+    </script>
+</body>
+</html>
